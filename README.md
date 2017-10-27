@@ -1,5 +1,6 @@
 # TripleGAN-Tensorflow
 Simple Tensorflow implementation of [Triple Generative Adversarial Nets](https://arxiv.org/pdf/1703.02291.pdf)
+
 If you want to see the original author's code, please refer to this [link](https://github.com/zhenxuan00/triple-gan)
 
 ## Idea
