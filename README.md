@@ -3,6 +3,8 @@ Simple Tensorflow implementation of [Triple Generative Adversarial Nets](https:/
 
 If you want to see the original author's code, please refer to this [link](https://github.com/zhenxuan00/triple-gan)
 
+## In progress
+
 ## Idea
 ### Network Architecture
 ![network](./assests/network.JPG)
