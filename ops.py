@@ -18,7 +18,7 @@ def weight_norm(x, output_dim) :
 
     return w_init
 
-def conv_layer(x, filter_size, kernel, stride=1, padding='SAME', wn=True, layer_name="conv"):
+def conv_layer(x, filter_size, kernel, stride=1, padding='SAME', wn=False, layer_name="conv"):
     with tf.name_scope(layer_name):
         if wn:
             w_init = weight_norm(x, filter_size)
@@ -38,7 +38,7 @@ def deconv_layer(x, filter_size, kernel, stride=1, padding='SAME', wn=False, lay
         return x
 
 
-def linear(x, unit, wn=True, layer_name='linear'):
+def linear(x, unit, wn=False, layer_name='linear'):
     with tf.name_scope(layer_name):
         if wn :
             w_init = weight_norm(x, unit)
@@ -48,8 +48,7 @@ def linear(x, unit, wn=True, layer_name='linear'):
         return x
 
 
-def nin(x, unit, wn=True, layer_name='nin'):
-    # https://github.com/openai/weightnorm/blob/master/tensorflow/nn.py
+def nin(x, unit, wn=False, layer_name='nin'):
     with tf.name_scope(layer_name):
         s = list(map(int, x.get_shape()))
         x = tf.reshape(x, [np.prod(s[:-1]), s[-1]])

@@ -27,6 +27,7 @@ class TripleGAN(object) :
 
             self.learning_rate = 3e-4 # 3e-4, 1e-3
             self.cla_learning_rate = 3e-3 # 3e-3, 1e-2 ?
+            self.GAN_beta1 = 0.5
             self.beta1 = 0.9
             self.beta2 = 0.999
             self.epsilon = 1e-8
@@ -76,6 +77,7 @@ class TripleGAN(object) :
             x_logit = linear(x, unit=1, layer_name=scope+'_linear1')
             out = sigmoid(x_logit)
 
+
             return out, x_logit, x
 
     def generator(self, z, y, scope='generator', is_training=True, reuse=False):
@@ -98,7 +100,7 @@ class TripleGAN(object) :
             x = batch_norm(x, is_training=is_training, scope=scope+'_batch3')
             x = conv_concat(x,y)
 
-            x = tanh(deconv_layer(x, filter_size=3, kernel=[5,5], stride=2, wn=True, layer_name=scope+'deconv3'))
+            x = tanh(deconv_layer(x, filter_size=3, kernel=[5,5], stride=2, wn=False, layer_name=scope+'deconv3'))
 
             return x
     def classifier(self, x, scope='classifier', is_training=True, reuse=False):
@@ -204,27 +206,36 @@ class TripleGAN(object) :
         for var in t_vars: print(var.name)
         # optimizers
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.d_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta1, beta2=self.beta2,epsilon=self.epsilon).minimize(self.d_loss, var_list=d_vars)
-            self.g_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta1, beta2=self.beta2,epsilon=self.epsilon).minimize(self.g_loss, var_list=g_vars)
-            self.c_optim = tf.train.AdamOptimizer(self.cla_learning_rate, beta1=self.beta1, beta2=self.beta2,epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
-
-
             """
+            self.d_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.GAN_beta1).minimize(self.d_loss, var_list=d_vars)
+            self.g_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.GAN_beta1).minimize(self.g_loss, var_list=g_vars)
+            self.c_optim = tf.train.AdamOptimizer(self.cla_learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
+            """
+
+
             with tf.name_scope("ADAM") :
                 batch = tf.Variable(0)
 
-                learning_rate = tf.train.exponential_decay(
+                gan_learning_rate = tf.train.exponential_decay(
                     learning_rate=self.learning_rate, # Base learning rate
                     global_step=batch * self.batch_size, # Current index into the dataset
                     decay_steps=len(self.data_X), # Decay step
                     decay_rate=0.995, # Decay rate
                     staircase=True
                 )
-                self.d_optim = tf.train.AdamOptimizer(learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.d_loss)
-                self.g_optim = tf.train.AdamOptimizer(learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.g_loss)
-                self.c_optim = tf.train.AdamOptimizer(learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss)
-            """
-
+                c_learning_rate = tf.train.exponential_decay(
+                    learning_rate=self.cla_learning_rate, # Base learning rate
+                    global_step=batch * self.batch_size, # Current index into the dataset
+                    decay_steps=len(self.data_X), # Decay step
+                    decay_rate=0.99, # Decay rate
+                    staircase=True
+                )
+                self.d_optim = tf.train.AdamOptimizer(gan_learning_rate, beta1=self.GAN_beta1).minimize(self.d_loss,
+                                                                                                         var_list=d_vars)
+                self.g_optim = tf.train.AdamOptimizer(gan_learning_rate, beta1=self.GAN_beta1).minimize(self.g_loss,
+                                                                                                         var_list=g_vars)
+                self.c_optim = tf.train.AdamOptimizer(c_learning_rate, beta1=self.beta1, beta2=self.beta2,
+                                                      epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
 
         """" Testing """
         # for test
