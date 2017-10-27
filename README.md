@@ -8,10 +8,10 @@ If you want to see the original author's code, please refer to this [link](https
 ![network](./assests/network.JPG)
 
 ### Algorithm
-![algorithm](./assests/algorithm.JPG)
+![algorithm](./assests/algorithm1.JPG)
 
 ### Classification result
-![c_result](./assests/result.JPG)
+![c_result](./assests/result1.JPG)
 
 ### Convergence speed on SVHN
 ![s_result](./assests/result2.JPG)
