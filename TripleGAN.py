@@ -32,9 +32,11 @@ class TripleGAN(object) :
             self.beta2 = 0.999
             self.epsilon = 1e-8
             self.alpha = 0.5
+            self.alpha_cla_adv = 0.01
             self.init_alpha_p = 0.0 # 0.1, 0.03
             self.apply_alpha_p = 0.1
             self.apply_epoch = 200 # 200, 300
+            self.decay_epoch = 300
 
             self.sample_num = 64
             self.visual_num = 100
@@ -135,8 +137,12 @@ class TripleGAN(object) :
         unlabel_bs = self.unlabelled_batch_size
         test_bs = self.test_batch_size
         alpha = self.alpha
+        alpha_cla_adv = self.alpha_cla_adv
         # alpha_p = self.alpha_p
         self.alpha_p = tf.placeholder(tf.float32, name='alpha_p')
+        self.gan_lr = tf.placeholder(tf.float32, name='gan_lr')
+        self.cla_lr = tf.placeholder(tf.float32, name='cla_lr')
+        self.unsup_weight = tf.placeholder(tf.float32, name='unsup_weight')
         """ Graph Input """
         # images
         self.inputs = tf.placeholder(tf.float32, [bs] + image_dims, name='real_images')
@@ -145,6 +151,7 @@ class TripleGAN(object) :
 
         # labels
         self.y = tf.placeholder(tf.float32, [bs, self.y_dim], name='y')
+        self.unlabelled_inputs_y = tf.placeholder(tf.float32, [unlabel_bs, self.y_dim])
         self.test_label = tf.placeholder(tf.float32, [test_bs, self.y_dim], name='test_label')
         self.visual_y = tf.placeholder(tf.float32, [self.visual_num, self.y_dim], name='visual_y')
 
@@ -193,7 +200,11 @@ class TripleGAN(object) :
         # get loss for classify
         max_c = tf.cast(tf.argmax(Y_c, axis=1), tf.float32)
         c_loss_dis = tf.reduce_mean(max_c * tf.nn.softmax_cross_entropy_with_logits(logits=D_cla_logits, labels=tf.ones_like(D_cla)))
-        self.c_loss = alpha * c_loss_dis + R_L + self.alpha_p*R_P
+        # self.c_loss = alpha * c_loss_dis + R_L + self.alpha_p*R_P
+
+        R_UL = self.unsup_weight * tf.reduce_mean(tf.squared_difference(Y_c, self.unlabelled_inputs_y))
+        self.c_loss = alpha_cla_adv * alpha * c_loss_dis + (R_L + R_UL) + self.alpha_p*R_P
+        # self.c_loss = alpha_cla_adv * alpha * c_loss_dis + R_L + R_P
 
         """ Training """
 
@@ -212,7 +223,7 @@ class TripleGAN(object) :
             self.c_optim = tf.train.AdamOptimizer(self.cla_learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
             """
 
-
+            """
             with tf.name_scope("ADAM") :
                 batch = tf.Variable(0)
 
@@ -220,22 +231,18 @@ class TripleGAN(object) :
                     learning_rate=self.learning_rate, # Base learning rate
                     global_step=batch * self.batch_size, # Current index into the dataset
                     decay_steps=len(self.data_X), # Decay step
-                    decay_rate=0.995, # Decay rate
-                    staircase=True
+                    decay_rate=0.995 # Decay rate
                 )
                 c_learning_rate = tf.train.exponential_decay(
                     learning_rate=self.cla_learning_rate, # Base learning rate
                     global_step=batch * self.batch_size, # Current index into the dataset
-                    decay_steps=len(self.data_X), # Decay step
-                    decay_rate=0.99, # Decay rate
-                    staircase=True
+                    decay_steps=len(self.data_X) * 300, # Decay step
+                    decay_rate=0.99 # Decay rate
                 )
-                self.d_optim = tf.train.AdamOptimizer(gan_learning_rate, beta1=self.GAN_beta1).minimize(self.d_loss,
-                                                                                                         var_list=d_vars)
-                self.g_optim = tf.train.AdamOptimizer(gan_learning_rate, beta1=self.GAN_beta1).minimize(self.g_loss,
-                                                                                                         var_list=g_vars)
-                self.c_optim = tf.train.AdamOptimizer(c_learning_rate, beta1=self.beta1, beta2=self.beta2,
-                                                      epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
+            """
+            self.d_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.d_loss, var_list=d_vars)
+            self.g_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.g_loss, var_list=g_vars)
+            self.c_optim = tf.train.AdamOptimizer(self.cla_lr, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
 
         """" Testing """
         # for test
@@ -288,11 +295,23 @@ class TripleGAN(object) :
 
         # loop for epoch
         start_time = time.time()
+        gan_lr = self.learning_rate
+        cla_lr = self.cla_learning_rate
+
         for epoch in range(start_epoch, self.epoch):
+
+            if epoch >= self.decay_epoch :
+                gan_lr *= 0.995
+                cla_lr *= 0.99
+
             if epoch >= self.apply_epoch :
                 alpha_p = self.apply_alpha_p
             else :
                 alpha_p = self.init_alpha_p
+
+            rampup_value = rampup(epoch - 1)
+            unsup_weight = rampup_value * 100.0 if epoch > 1 else 0
+
             # get batch data
             for idx in range(start_batch_id, self.num_batches):
                 batch_images = self.data_X[idx * self.batch_size : (idx + 1) * self.batch_size]
@@ -300,30 +319,30 @@ class TripleGAN(object) :
 
                 # batch_unlabelled_images = np.asarray(random.sample(list(self.unlabelled_X), self.unlabelled_batch_size))
                 batch_unlabelled_images = self.unlabelled_X[idx * self.unlabelled_batch_size : (idx + 1) * self.unlabelled_batch_size]
+                batch_unlabelled_images_y = self.unlabelled_y[idx * self.unlabelled_batch_size : (idx + 1) * self.unlabelled_batch_size]
                 # batch_unlabelled_images = random.sample(self.unlabelled_X, self.batch_size)
                 # batch_unlabelled_codes = random.sample(self.unlabelled_y, self.batch_size)
 
                 batch_z = np.random.uniform(-1, 1, size=(self.batch_size, self.z_dim))
 
+                feed_dict = {
+                    self.inputs: batch_images, self.y: batch_codes,
+                    self.unlabelled_inputs: batch_unlabelled_images,
+                    self.unlabelled_inputs_y: batch_unlabelled_images_y,
+                    self.z: batch_z, self.alpha_p: alpha_p,
+                    self.gan_lr: gan_lr, self.cla_lr: cla_lr,
+                    self.unsup_weight : unsup_weight
+                }
                 # update D network
-                _, summary_str, d_loss = self.sess.run([self.d_optim, self.d_sum, self.d_loss],
-                                                       feed_dict={self.inputs: batch_images, self.y: batch_codes,
-                                                                  self.unlabelled_inputs: batch_unlabelled_images,
-                                                                  self.z: batch_z, self.alpha_p: alpha_p})
+                _, summary_str, d_loss = self.sess.run([self.d_optim, self.d_sum, self.d_loss], feed_dict=feed_dict)
                 self.writer.add_summary(summary_str, counter)
 
                 # update G network
-                _, summary_str_g, g_loss = self.sess.run([self.g_optim, self.g_sum, self.g_loss],
-                    feed_dict={self.inputs: batch_images, self.y: batch_codes,
-                               self.unlabelled_inputs: batch_unlabelled_images,
-                               self.z: batch_z, self.alpha_p: alpha_p})
+                _, summary_str_g, g_loss = self.sess.run([self.g_optim, self.g_sum, self.g_loss], feed_dict=feed_dict)
                 self.writer.add_summary(summary_str_g, counter)
 
                 # update C network
-                _, summary_str_c, c_loss = self.sess.run([self.c_optim, self.c_sum, self.c_loss],
-                    feed_dict={self.inputs: batch_images, self.y: batch_codes,
-                               self.unlabelled_inputs: batch_unlabelled_images,
-                               self.z: batch_z, self.alpha_p: alpha_p})
+                _, summary_str_c, c_loss = self.sess.run([self.c_optim, self.c_sum, self.c_loss], feed_dict=feed_dict)
                 self.writer.add_summary(summary_str_c, counter)
 
                 # display training status

@@ -2,9 +2,10 @@ import tensorflow as tf
 from tflearn import global_avg_pool
 from tensorflow.contrib.layers import variance_scaling_initializer
 import numpy as np
+import math
 
 he_init = variance_scaling_initializer()
-
+# he_init = tf.truncated_normal_initializer(stddev=0.02)
 """
 weight normalization
 Kaming he initialization -> weight_normalization -> it uses kernel_initialization
@@ -12,16 +13,17 @@ Kaming he initialization -> weight_normalization -> it uses kernel_initializatio
 
 def weight_norm(x, output_dim) :
     input_dim = int(x.get_shape()[-1])
-    g = tf.get_variable('g_scalar', shape=[1], initializer=tf.ones_initializer())
-    w = tf.get_variable('weight', shape=[input_dim, output_dim], initializer=he_init)
-    w_init = g * tf.nn.l2_normalize(w, dim=[0, 1])  # SAME dim=1
+    g = tf.get_variable('g_scalar', shape=[output_dim], dtype=tf.float32, initializer=tf.ones_initializer())
+    w = tf.get_variable('weight', shape=[input_dim, output_dim], dtype=tf.float32, initializer=he_init)
+    w_init = tf.nn.l2_normalize(w, dim=0) * g  # SAME dim=1
 
-    return w_init
+    return tf.constant_initializer(w_init)
 
 def conv_layer(x, filter_size, kernel, stride=1, padding='SAME', wn=False, layer_name="conv"):
     with tf.name_scope(layer_name):
         if wn:
             w_init = weight_norm(x, filter_size)
+
             x = tf.layers.conv2d(inputs=x, filters=filter_size, kernel_size=kernel, kernel_initializer=w_init, strides=stride, padding=padding)
         else :
             x = tf.layers.conv2d(inputs=x, filters=filter_size, kernel_size=kernel, kernel_initializer=he_init, strides=stride, padding=padding)
@@ -49,6 +51,7 @@ def linear(x, unit, wn=False, layer_name='linear'):
 
 
 def nin(x, unit, wn=False, layer_name='nin'):
+    # https://github.com/openai/weightnorm/blob/master/tensorflow/nn.py
     with tf.name_scope(layer_name):
         s = list(map(int, x.get_shape()))
         x = tf.reshape(x, [np.prod(s[:-1]), s[-1]])
@@ -90,7 +93,6 @@ def relu(x):
 def tanh(x):
     return tf.nn.tanh(x)
 
-
 def conv_concat(x, y):
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
@@ -118,3 +120,18 @@ def batch_norm(x, is_training, scope):
 
 def dropout(x, rate, is_training):
     return tf.layers.dropout(inputs=x, rate=rate, training=is_training)
+
+def rampup(epoch):
+    if epoch < 80:
+        p = max(0.0, float(epoch)) / float(80)
+        p = 1.0 - p
+        return math.exp(-p*p*5.0)
+    else:
+        return 1.0
+
+def rampdown(epoch):
+    if epoch >= (300 - 50):
+        ep = (epoch - (300 - 50)) * 0.5
+        return math.exp(-(ep * ep) / 50)
+    else:
+        return 1.0
