@@ -26,5 +26,9 @@ If you want to see the original author's code, please refer to this [link](https
 * 85.4% (Cifar10, 4000 labelled data)
 ![my_result](./assests/classification_result.JPG)
 
+## Related works
+* [CycleGAN](https://github.com/taki0112/CycleGAN-Tensorflow)
+* [DiscoGAN](https://github.com/taki0112/DiscoGAN-Tensorflow)
+
 ## Author
 Junho Kim
