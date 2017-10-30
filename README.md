@@ -23,7 +23,7 @@ If you want to see the original author's code, please refer to this [link](https
 ![s_result](./assests/result2.JPG)
 
 ## My classification result
-* 85.4%
+* 85.4% (Cifar10, 4000 labelled data)
 ![my_result](./assests/classification_result.JPG)
 
 ## Author
