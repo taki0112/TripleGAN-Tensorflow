@@ -25,8 +25,8 @@ class TripleGAN(object) :
             self.y_dim = 10
             self.c_dim = 3
 
-            self.learning_rate = 3e-4 # 3e-4, 1e-3
-            self.cla_learning_rate = 3e-3 # 3e-3, 1e-2 ?
+            self.learning_rate = 2e-4 # 3e-4, 1e-3
+            self.cla_learning_rate = 2e-3 # 3e-3, 1e-2 ?
             self.GAN_beta1 = 0.5
             self.beta1 = 0.9
             self.beta2 = 0.999
@@ -244,6 +244,8 @@ class TripleGAN(object) :
             self.g_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.g_loss, var_list=g_vars)
             self.c_optim = tf.train.AdamOptimizer(self.cla_lr, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
 
+            # self.c_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.c_loss, var_list=c_vars)
+
         """" Testing """
         # for test
         self.fake_images = self.generator(self.visual_z, self.visual_y, is_training=False, reuse=True)
@@ -271,8 +273,8 @@ class TripleGAN(object) :
         tf.global_variables_initializer().run()
 
         # graph inputs for visualize training results
-        self.sample_z = np.random.uniform(-1, 1, size=(self.batch_size, self.z_dim))
-        self.test_codes = self.data_y[0:self.batch_size]
+        self.sample_z = np.random.uniform(-1, 1, size=(self.visual_num, self.z_dim))
+        self.test_codes = self.data_y[0:self.visual_num]
 
         # saver to save model
         self.saver = tf.train.Saver()
@@ -352,13 +354,11 @@ class TripleGAN(object) :
 
                 # save training results for every 300 steps
                 """
-                if np.mod(counter, 300) == 0:
+                if np.mod(counter, 100) == 0:
                     samples = self.sess.run(self.fake_images,
                                             feed_dict={self.z: self.sample_z, self.y: self.test_codes})
-                    tot_num_samples = min(self.sample_num, self.batch_size)
-                    manifold_h = int(np.floor(np.sqrt(tot_num_samples)))
-                    manifold_w = int(np.floor(np.sqrt(tot_num_samples)))
-                    save_images(samples[:manifold_h * manifold_w, :, :, :], [manifold_h, manifold_w],
+                    image_frame_dim = int(np.floor(np.sqrt(self.visual_num)))
+                    save_images(samples[:image_frame_dim * image_frame_dim, :, :, :], [image_frame_dim, image_frame_dim],
                                 './' + check_folder(
                                     self.result_dir + '/' + self.model_dir) + '/' + self.model_name + '_train_{:02d}_{:04d}.png'.format(
                                     epoch, idx))
