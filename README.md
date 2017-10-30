@@ -15,11 +15,16 @@ If you want to see the original author's code, please refer to this [link](https
 ### Algorithm
 ![algorithm](./assests/algorithm.JPG)
 
+## Result
 ### Classification result
 ![c_result](./assests/result.JPG)
 
 ### Convergence speed on SVHN
 ![s_result](./assests/result2.JPG)
+
+## My classification result
+* 85.4%
+![my_result](./assests/classification_result.JPG)
 
 ## Author
 Junho Kim
