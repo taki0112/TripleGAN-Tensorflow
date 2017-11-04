@@ -385,13 +385,6 @@ class TripleGAN(object) :
             # save model for final step
         self.save(self.checkpoint_dir, counter)
 
-    def dataset_move(self, idx):
-        self.unlabelled_X = list(self.unlabelled_X)
-        self.unlabelled_X = self.unlabelled_X[(idx + 1) * self.unlabelled_batch_size:] \
-                            + self.unlabelled_X[
-                              idx * self.unlabelled_batch_size: (idx + 1) * self.unlabelled_batch_size]
-        self.unlabelled_X = np.asarray(self.unlabelled_X)
-
     def visualize_results(self, epoch):
         # tot_num_samples = min(self.sample_num, self.batch_size)
         image_frame_dim = int(np.floor(np.sqrt(self.visual_num)))
