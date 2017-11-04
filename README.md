@@ -21,9 +21,12 @@ If you want to see the original author's code, please refer to this [link](https
 ### Convergence speed on SVHN
 ![s_result](./assests/result2.JPG)
 
-## My classification result
-* 85.4% (Cifar10, 4000 labelled data)
-![my_result](./assests/classification_result.JPG)
+## My result
+### Loss
+![loss](./assests/loss.png)
+
+### classification accuracy
+![accuracy](./assests/accuracy.png)
 
 ## Related works
 * [CycleGAN](https://github.com/taki0112/CycleGAN-Tensorflow)
