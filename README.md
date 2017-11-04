@@ -5,7 +5,7 @@ If you want to see the original author's code, please refer to this [link](https
 
 ## In progress
 ### Issue
-* I am now modifying the weight normalization (If you know how to implement with tensorflow, let me know)
+* I am now modifying the ***weight normalization*** (If you know how to implement with tensorflow, let me know)
 
 ## Idea
 ### Network Architecture
