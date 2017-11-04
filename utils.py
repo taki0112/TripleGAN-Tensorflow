@@ -20,8 +20,8 @@ def imsave(images, size, path):
     return scipy.misc.imsave(path, image)
 
 def inverse_transform(images):
-    # return (images+1.)/2.
-    return ((images + 1.) * 127.5).astype('uint8')
+    return (images+1.)/2.
+    # return ((images + 1.) * 127.5).astype('uint8')
 
 def merge(images, size):
     h, w = images.shape[1], images.shape[2]

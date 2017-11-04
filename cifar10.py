@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 import random
 import numpy as np
 from collections import defaultdict
@@ -14,54 +13,54 @@ def prepare_data(n):
     train_data, test_data = color_preprocessing(train_data, test_data) # pre-processing
 
     criteria = n//10
-    input_dict, input_x, input_y, classify_x, classify_y = defaultdict(int), list(), list(), list(), list()
+    input_dict, labelled_x, labelled_y, unlabelled_x, unlabelled_y = defaultdict(int), list(), list(), list(), list()
 
     for image, label in zip(train_data,train_labels) :
         if input_dict[int(label)] != criteria :
             input_dict[int(label)] += 1
-            input_x.append(image)
-            input_y.append(label)
+            labelled_x.append(image)
+            labelled_y.append(label)
 
-        classify_x.append(image)
-        classify_y.append(label)
+        unlabelled_x.append(image)
+        unlabelled_y.append(label)
 
 
-    input_x = np.asarray(input_x)
-    input_y = np.asarray(input_y)
-    classify_x = np.asarray(classify_x)
-    classify_y = np.asarray(classify_y)
+    labelled_x = np.asarray(labelled_x)
+    labelled_y = np.asarray(labelled_y)
+    unlabelled_x = np.asarray(unlabelled_x)
+    unlabelled_y = np.asarray(unlabelled_y)
 
-    print("Input data:", np.shape(input_x), np.shape(input_y))
-    print("Classify data :", np.shape(classify_x), np.shape(classify_y))
+    print("labelled data:", np.shape(labelled_x), np.shape(labelled_y))
+    print("unlabelled data :", np.shape(unlabelled_x), np.shape(unlabelled_y))
     print("Test data :", np.shape(test_data), np.shape(test_labels))
     print("======Load finished======")
 
     print("======Shuffling data======")
-    indices = np.random.permutation(len(input_x))
-    input_x = input_x[indices]
-    input_y = input_y[indices]
+    indices = np.random.permutation(len(labelled_x))
+    labelled_x = labelled_x[indices]
+    labelled_y = labelled_y[indices]
 
-    indices = np.random.permutation(len(classify_x))
-    classify_x = classify_x[indices]
-    classify_y = classify_y[indices]
+    indices = np.random.permutation(len(unlabelled_x))
+    unlabelled_x = unlabelled_x[indices]
+    unlabelled_y = unlabelled_y[indices]
 
     print("======Prepare Finished======")
 
 
-    input_y_vec = np.zeros((len(input_y), 10), dtype=np.float)
-    for i, label in enumerate(input_y) :
-        input_y_vec[i, input_y[i]] = 1.0
+    labelled_y_vec = np.zeros((len(labelled_y), 10), dtype=np.float)
+    for i, label in enumerate(labelled_y) :
+        labelled_y_vec[i, labelled_y[i]] = 1.0
 
-    classify_y_vec = np.zeros((len(classify_y), 10), dtype=np.float)
-    for i, label in enumerate(classify_y) :
-        classify_y_vec[i, classify_y[i]] = 1.0
+    unlabelled_y_vec = np.zeros((len(unlabelled_y), 10), dtype=np.float)
+    for i, label in enumerate(unlabelled_y) :
+        unlabelled_y_vec[i, unlabelled_y[i]] = 1.0
 
     test_labels_vec = np.zeros((len(test_labels), 10), dtype=np.float)
     for i, label in enumerate(test_labels) :
         test_labels_vec[i, test_labels[i]] = 1.0
 
 
-    return input_x, input_y_vec, classify_x, classify_y_vec, test_data, test_labels_vec
+    return labelled_x, labelled_y_vec, unlabelled_x, unlabelled_y_vec, test_data, test_labels_vec
 
 
 # ========================================================== #
@@ -98,6 +97,7 @@ def _random_flip_leftright(batch):
 
 
 def color_preprocessing(x_train, x_test):
+    """
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
     x_train[:, :, :, 0] = (x_train[:, :, :, 0] - np.mean(x_train[:, :, :, 0])) / np.std(x_train[:, :, :, 0])
@@ -107,7 +107,9 @@ def color_preprocessing(x_train, x_test):
     x_test[:, :, :, 0] = (x_test[:, :, :, 0] - np.mean(x_test[:, :, :, 0])) / np.std(x_test[:, :, :, 0])
     x_test[:, :, :, 1] = (x_test[:, :, :, 1] - np.mean(x_test[:, :, :, 1])) / np.std(x_test[:, :, :, 1])
     x_test[:, :, :, 2] = (x_test[:, :, :, 2] - np.mean(x_test[:, :, :, 2])) / np.std(x_test[:, :, :, 2])
-
+    """
+    x_train = x_train/127.5 - 1
+    x_test = x_test/127.5 - 1
     return x_train, x_test
 
 

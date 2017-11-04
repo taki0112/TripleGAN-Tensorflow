@@ -18,6 +18,8 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=20, help='The size of batch')
     parser.add_argument('--unlabel_batch_size', type=int, default=250, help='The size of unlabel batch')
     parser.add_argument('--z_dim', type=int, default=100, help='Dimension of noise vector')
+    parser.add_argument('--gan_lr', type=float, default=2e-4, help='learning rate of GAN')
+    parser.add_argument('--cla_lr', type=float, default=2e-3, help='learning rate of Classify')
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoint',
                         help='Directory name to save the checkpoints')
     parser.add_argument('--result_dir', type=str, default='results',
@@ -68,7 +70,7 @@ def main():
     # open session
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         gan = TripleGAN(sess, epoch=args.epoch, batch_size=args.batch_size, unlabel_batch_size=args.unlabel_batch_size,
-                        z_dim=args.z_dim, dataset_name=args.dataset, n=args.n,
+                        z_dim=args.z_dim, dataset_name=args.dataset, n=args.n, gan_lr = args.gan_lr, cla_lr = args.cla_lr,
                         checkpoint_dir=args.checkpoint_dir, result_dir=args.result_dir, log_dir=args.log_dir)
 
         # build graph

@@ -4,7 +4,7 @@ from utils import *
 import time
 
 class TripleGAN(object) :
-    def __init__(self, sess, epoch, batch_size, unlabel_batch_size, z_dim, dataset_name, n, checkpoint_dir, result_dir, log_dir):
+    def __init__(self, sess, epoch, batch_size, unlabel_batch_size, z_dim, dataset_name, n, gan_lr, cla_lr, checkpoint_dir, result_dir, log_dir):
         self.sess = sess
         self.dataset_name = dataset_name
         self.checkpoint_dir = checkpoint_dir
@@ -25,8 +25,8 @@ class TripleGAN(object) :
             self.y_dim = 10
             self.c_dim = 3
 
-            self.learning_rate = 2e-4 # 3e-4, 1e-3
-            self.cla_learning_rate = 2e-3 # 3e-3, 1e-2 ?
+            self.learning_rate = gan_lr # 3e-4, 1e-3
+            self.cla_learning_rate = cla_lr # 3e-3, 1e-2 ?
             self.GAN_beta1 = 0.5
             self.beta1 = 0.9
             self.beta2 = 0.999
@@ -36,7 +36,7 @@ class TripleGAN(object) :
             self.init_alpha_p = 0.0 # 0.1, 0.03
             self.apply_alpha_p = 0.1
             self.apply_epoch = 200 # 200, 300
-            self.decay_epoch = 300
+            self.decay_epoch = 50
 
             self.sample_num = 64
             self.visual_num = 100
@@ -90,7 +90,7 @@ class TripleGAN(object) :
             x = relu(linear(x, unit=512*4*4, layer_name=scope+'_linear1'))
             x = batch_norm(x, is_training=is_training, scope=scope+'_batch1')
 
-            x = tf.reshape(x, shape=[-1, 4, 4, 512]) # -1이 아니라 self.batch_size인가 ?
+            x = tf.reshape(x, shape=[-1, 4, 4, 512])
             y = tf.reshape(y, [-1, 1, 1, self.y_dim])
             x = conv_concat(x,y)
 
@@ -138,11 +138,12 @@ class TripleGAN(object) :
         test_bs = self.test_batch_size
         alpha = self.alpha
         alpha_cla_adv = self.alpha_cla_adv
-        # alpha_p = self.alpha_p
         self.alpha_p = tf.placeholder(tf.float32, name='alpha_p')
         self.gan_lr = tf.placeholder(tf.float32, name='gan_lr')
         self.cla_lr = tf.placeholder(tf.float32, name='cla_lr')
         self.unsup_weight = tf.placeholder(tf.float32, name='unsup_weight')
+        self.c_beta1 = tf.placeholder(tf.float32, name='c_beta1')
+
         """ Graph Input """
         # images
         self.inputs = tf.placeholder(tf.float32, [bs] + image_dims, name='real_images')
@@ -170,27 +171,27 @@ class TripleGAN(object) :
         D_fake, D_fake_logits, _ = self.discriminator(G, self.y, is_training=True, reuse=True)
 
         # output of C for real images
-        C_real_logits = self.classifier(self.inputs, is_training=True, reuse=False) # 실제 이미지
-        R_L = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=C_real_logits)) # classify error 계산
+        C_real_logits = self.classifier(self.inputs, is_training=True, reuse=False)
+        R_L = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=C_real_logits))
 
         # output of D for unlabelled images
-        Y_c = self.classifier(self.unlabelled_inputs, is_training=True, reuse=True) # 어떤 이미지를 넣어야하는거지 ? 걍 같은 input 이미지 ?
-        D_cla, D_cla_logits, _ = self.discriminator(self.unlabelled_inputs, Y_c, is_training=True, reuse=True)  # class를 뱉어냄
+        Y_c = self.classifier(self.unlabelled_inputs, is_training=True, reuse=True)
+        D_cla, D_cla_logits, _ = self.discriminator(self.unlabelled_inputs, Y_c, is_training=True, reuse=True)
 
         # output of C for fake images
-        C_fake_logits = self.classifier(G, is_training=True, reuse=True) # 생성된 이미지를 classify
-        R_P = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=C_fake_logits)) # 생성된 이미지의 라벨에 대한 에러 계산
+        C_fake_logits = self.classifier(G, is_training=True, reuse=True)
+        R_P = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=C_fake_logits))
 
         #
 
         # get loss for discriminator
-        d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real_logits, labels=tf.ones_like(D_real))) # 진짜 이미지
-        d_loss_fake = (1-alpha)*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits, labels=tf.zeros_like(D_fake))) # 가짜 이미지
-        d_loss_cla = alpha*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_cla_logits, labels=tf.zeros_like(D_cla))) # 진짜이미지인데 classify
+        d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real_logits, labels=tf.ones_like(D_real)))
+        d_loss_fake = (1-alpha)*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits, labels=tf.zeros_like(D_fake)))
+        d_loss_cla = alpha*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_cla_logits, labels=tf.zeros_like(D_cla)))
         self.d_loss = d_loss_real + d_loss_fake + d_loss_cla
 
         # get loss for generator
-        self.g_loss = (1-alpha)*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits, labels=tf.ones_like(D_fake))) # 가짜이미지
+        self.g_loss = (1-alpha)*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits, labels=tf.ones_like(D_fake)))
 
         # test loss for classify
         test_Y = self.classifier(self.test_inputs, is_training=False, reuse=True)
@@ -204,7 +205,6 @@ class TripleGAN(object) :
 
         R_UL = self.unsup_weight * tf.reduce_mean(tf.squared_difference(Y_c, self.unlabelled_inputs_y))
         self.c_loss = alpha_cla_adv * alpha * c_loss_dis + (R_L + R_UL) + self.alpha_p*R_P
-        # self.c_loss = alpha_cla_adv * alpha * c_loss_dis + R_L + R_P
 
         """ Training """
 
@@ -217,34 +217,9 @@ class TripleGAN(object) :
         for var in t_vars: print(var.name)
         # optimizers
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            """
-            self.d_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.GAN_beta1).minimize(self.d_loss, var_list=d_vars)
-            self.g_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.GAN_beta1).minimize(self.g_loss, var_list=g_vars)
-            self.c_optim = tf.train.AdamOptimizer(self.cla_learning_rate, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
-            """
-
-            """
-            with tf.name_scope("ADAM") :
-                batch = tf.Variable(0)
-
-                gan_learning_rate = tf.train.exponential_decay(
-                    learning_rate=self.learning_rate, # Base learning rate
-                    global_step=batch * self.batch_size, # Current index into the dataset
-                    decay_steps=len(self.data_X), # Decay step
-                    decay_rate=0.995 # Decay rate
-                )
-                c_learning_rate = tf.train.exponential_decay(
-                    learning_rate=self.cla_learning_rate, # Base learning rate
-                    global_step=batch * self.batch_size, # Current index into the dataset
-                    decay_steps=len(self.data_X) * 300, # Decay step
-                    decay_rate=0.99 # Decay rate
-                )
-            """
             self.d_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.d_loss, var_list=d_vars)
             self.g_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.g_loss, var_list=g_vars)
             self.c_optim = tf.train.AdamOptimizer(self.cla_lr, beta1=self.beta1, beta2=self.beta2, epsilon=self.epsilon).minimize(self.c_loss, var_list=c_vars)
-
-            # self.c_optim = tf.train.AdamOptimizer(self.gan_lr, beta1=self.GAN_beta1).minimize(self.c_loss, var_list=c_vars)
 
         """" Testing """
         # for test
@@ -271,6 +246,8 @@ class TripleGAN(object) :
 
         # initialize all variables
         tf.global_variables_initializer().run()
+        gan_lr = self.learning_rate
+        cla_lr = self.cla_learning_rate
 
         # graph inputs for visualize training results
         self.sample_z = np.random.uniform(-1, 1, size=(self.visual_num, self.z_dim))
@@ -288,6 +265,13 @@ class TripleGAN(object) :
             start_epoch = (int)(checkpoint_counter / self.num_batches)
             start_batch_id = checkpoint_counter - start_epoch * self.num_batches
             counter = checkpoint_counter
+            with open('lr_logs.txt', 'r') as f :
+                line = f.readlines()
+                line = line[-1]
+                gan_lr = float(line.split()[0])
+                cla_lr = float(line.split()[1])
+                print("gan_lr : ", gan_lr)
+                print("cla_lr : ", cla_lr)
             print(" [*] Load SUCCESS")
         else:
             start_epoch = 0
@@ -297,14 +281,15 @@ class TripleGAN(object) :
 
         # loop for epoch
         start_time = time.time()
-        gan_lr = self.learning_rate
-        cla_lr = self.cla_learning_rate
 
         for epoch in range(start_epoch, self.epoch):
 
             if epoch >= self.decay_epoch :
                 gan_lr *= 0.995
                 cla_lr *= 0.99
+                print("**** learning rate DECAY ****")
+                print(gan_lr)
+                print(cla_lr)
 
             if epoch >= self.apply_epoch :
                 alpha_p = self.apply_alpha_p
@@ -319,11 +304,8 @@ class TripleGAN(object) :
                 batch_images = self.data_X[idx * self.batch_size : (idx + 1) * self.batch_size]
                 batch_codes = self.data_y[idx * self.batch_size : (idx + 1) * self.batch_size]
 
-                # batch_unlabelled_images = np.asarray(random.sample(list(self.unlabelled_X), self.unlabelled_batch_size))
                 batch_unlabelled_images = self.unlabelled_X[idx * self.unlabelled_batch_size : (idx + 1) * self.unlabelled_batch_size]
                 batch_unlabelled_images_y = self.unlabelled_y[idx * self.unlabelled_batch_size : (idx + 1) * self.unlabelled_batch_size]
-                # batch_unlabelled_images = random.sample(self.unlabelled_X, self.batch_size)
-                # batch_unlabelled_codes = random.sample(self.unlabelled_y, self.batch_size)
 
                 batch_z = np.random.uniform(-1, 1, size=(self.batch_size, self.z_dim))
 
@@ -352,7 +334,7 @@ class TripleGAN(object) :
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, c_loss: %.8f" \
                       % (epoch, idx, self.num_batches, time.time() - start_time, d_loss, g_loss, c_loss))
 
-                # save training results for every 300 steps
+                # save training results for every 100 steps
                 """
                 if np.mod(counter, 100) == 0:
                     samples = self.sess.run(self.fake_images,
@@ -382,10 +364,13 @@ class TripleGAN(object) :
             summary_test = tf.Summary(value=[tf.Summary.Value(tag='test_accuracy', simple_value=test_acc)])
             self.writer.add_summary(summary_test, epoch)
 
-            line = "Epoch: [%2d], test_acc: %.4f \n" % (epoch, test_acc)
+            line = "Epoch: [%2d], test_acc: %.4f\n" % (epoch, test_acc)
             print(line)
+            lr = "{} {}".format(gan_lr, cla_lr)
             with open('logs.txt', 'a') as f:
                 f.write(line)
+            with open('lr_logs.txt', 'a') as f :
+                f.write(lr+'\n')
 
             # After an epoch, start_batch_id is set to zero
             # non-zero value is only for the first epoch after loading pre-trained model
@@ -414,7 +399,7 @@ class TripleGAN(object) :
 
         """ random noise, random discrete code, fixed continuous code """
         y = np.random.choice(self.len_discrete_code, self.visual_num)
-        # 10개의 label을 batch_size만큼 생성함
+        # Generated 10 labels with batch_size
         y_one_hot = np.zeros((self.visual_num, self.y_dim))
         y_one_hot[np.arange(self.visual_num), y] = 1
 

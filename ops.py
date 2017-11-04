@@ -7,8 +7,7 @@ import math
 he_init = variance_scaling_initializer()
 # he_init = tf.truncated_normal_initializer(stddev=0.02)
 """
-weight normalization
-Kaming he initialization -> weight_normalization -> it uses kernel_initialization
+The weight norm is not implemented at this time.
 """
 
 def weight_norm(x, output_dim) :
@@ -17,7 +16,7 @@ def weight_norm(x, output_dim) :
     w = tf.get_variable('weight', shape=[input_dim, output_dim], dtype=tf.float32, initializer=he_init)
     w_init = tf.nn.l2_normalize(w, dim=0) * g  # SAME dim=1
 
-    return tf.constant_initializer(w_init)
+    return tf.variables_initializer(w_init)
 
 def conv_layer(x, filter_size, kernel, stride=1, padding='SAME', wn=False, layer_name="conv"):
     with tf.name_scope(layer_name):
@@ -117,6 +116,16 @@ def batch_norm(x, is_training, scope):
                                         is_training=is_training,
                                         scope=scope)
 
+def instance_norm(x, is_training, scope):
+    with tf.variable_scope(scope):
+        epsilon = 1e-5
+        mean, var = tf.nn.moments(x, [1, 2], keep_dims=True)
+        scale = tf.get_variable('scale', [x.get_shape()[-1]],
+                                initializer=tf.truncated_normal_initializer(mean=1.0, stddev=0.02))
+        offset = tf.get_variable('offset', [x.get_shape()[-1]], initializer=tf.constant_initializer(0.0))
+        out = scale * tf.div(x - mean, tf.sqrt(var + epsilon)) + offset
+
+        return out
 
 def dropout(x, rate, is_training):
     return tf.layers.dropout(inputs=x, rate=rate, training=is_training)
