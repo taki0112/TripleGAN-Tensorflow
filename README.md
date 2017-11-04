@@ -7,6 +7,11 @@ If you want to see the original author's code, please refer to this [link](https
 ### Issue
 * I am now modifying the ***weight normalization*** (If you know how to implement with tensorflow, let me know)
 
+## Usage
+```bash
+> python main.py
+```
+
 ## Idea
 ### Network Architecture
 ![network](./assests/network.JPG)
