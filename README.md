@@ -25,8 +25,12 @@ If you want to see the original author's code, please refer to this [link](https
 ### Loss
 ![loss](./assests/loss.png)
 
-### classification accuracy
+### Classification accuracy
 ![accuracy](./assests/accuracy.png)
+
+### Generated Image (Other images are in assests)
+#### Automobile
+![automobile](./assests/generated_image/class_1.png)
 
 ## Related works
 * [CycleGAN](https://github.com/taki0112/CycleGAN-Tensorflow)
