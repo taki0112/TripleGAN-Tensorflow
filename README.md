@@ -41,5 +41,8 @@ If you want to see the original author's code, please refer to this [link](https
 * [CycleGAN](https://github.com/taki0112/CycleGAN-Tensorflow)
 * [DiscoGAN](https://github.com/taki0112/DiscoGAN-Tensorflow)
 
+## Reference
+* [tensorflow-generative-model-collections](https://github.com/hwalsuklee/tensorflow-generative-model-collections)
+
 ## Author
 Junho Kim
