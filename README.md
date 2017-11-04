@@ -21,7 +21,7 @@ If you want to see the original author's code, please refer to this [link](https
 ### Convergence speed on SVHN
 ![s_result](./assests/result2.JPG)
 
-## My result
+## My result (Cifar10, 4000 labelled image)
 ### Loss
 ![loss](./assests/loss.png)
 
