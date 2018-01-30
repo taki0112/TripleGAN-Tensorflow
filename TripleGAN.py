@@ -203,8 +203,8 @@ class TripleGAN(object) :
         c_loss_dis = tf.reduce_mean(max_c * tf.nn.softmax_cross_entropy_with_logits(logits=D_cla_logits, labels=tf.ones_like(D_cla)))
         # self.c_loss = alpha * c_loss_dis + R_L + self.alpha_p*R_P
 
-        R_UL = self.unsup_weight * tf.reduce_mean(tf.squared_difference(Y_c, self.unlabelled_inputs_y))
-        self.c_loss = alpha_cla_adv * alpha * c_loss_dis + (R_L + R_UL) + self.alpha_p*R_P
+        # R_UL = self.unsup_weight * tf.reduce_mean(tf.squared_difference(Y_c, self.unlabelled_inputs_y))
+        self.c_loss = alpha_cla_adv * alpha * c_loss_dis + R_L + self.alpha_p*R_P
 
         """ Training """
 
